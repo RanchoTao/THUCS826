@@ -1,52 +1,71 @@
 # THUCS826
 
-> 清华大学计算机系北京本部 826 计算机专业基础综合备考资料库。
+THUCS826 is a long-term knowledge base for preparing for Tsinghua University computer science graduate entrance exam materials, with emphasis on current THUCS826 preparation and historical 清华计算机 912 materials.
 
-## 当前状态
+This repository is currently in a **cleanup and indexing stage**. Materials are preserved conservatively; historical 912 files are useful references but should not be treated as an official or complete 826 syllabus.
 
-资料整理阶段。
+## Directory structure
 
-本仓库正在从旧的“清华 912 资料堆”重构为面向 **清华大学计算机系北京本部 826 计算机专业基础综合** 的备考资料库。当前优先做结构化整理、索引和知识地图，不急于重写全部内容。
+```text
+THUCS826/
+├── README.md
+├── LICENSE
+├── .gitignore
+├── docs/
+│   ├── index.md
+│   ├── roadmap.md
+│   ├── syllabus.md
+│   ├── resources.md
+│   └── notes/
+├── exams/
+│   ├── 2017/
+│   ├── 2018/
+│   ├── 2019/
+│   └── 2020/
+├── references/
+├── raw/
+│   ├── legacy-before-2025-11/
+│   ├── legacy-after-2026-01/
+│   └── duplicates/
+├── scripts/
+└── outputs/
+```
 
-## 考试结构
+## How to use this repository
 
-| 科目 | 分值 |
-| --- | ---: |
-| 数据结构 | 70 |
-| 计算机原理 | 30 |
-| 操作系统 | 30 |
-| 计算机网络 | 20 |
-| **合计** | **150** |
+1. Start from [`docs/index.md`](docs/index.md) for navigation.
+2. Read [`docs/syllabus.md`](docs/syllabus.md) as an inferred subject map, not an official syllabus.
+3. Use [`docs/roadmap.md`](docs/roadmap.md) to plan preparation phases.
+4. Check [`docs/resources.md`](docs/resources.md) to locate available materials.
+5. Review [`outputs/material_inventory.md`](outputs/material_inventory.md) before moving or editing raw materials.
+6. Use [`outputs/exam_analysis.md`](outputs/exam_analysis.md) to understand which past 912 recall files are currently available.
 
-## 重要声明
+## Current material coverage
 
-- 本仓库不保证资料绝对准确，最终以清华大学研究生招生网发布的官方招生目录、专业目录和考试说明为准。
-- 仓库内旧 **912** 资料均标记为历史参考资料，不能直接等同于当前 **826** 考试范围、难度和命题方式。
-- 叉院不作为普通考研主路径，仅作为长期科研方向、导师匹配和交叉培养机会的观察线。
+- Historical 清华计算机 912 recall files for 2017, 2018, 2019, and 2020.
+- A legacy archive collected before 2025-11, including subject notes, course materials, older exam documents, English and math materials, and miscellaneous files.
+- A small post-2026-01 legacy archive.
+- A Tsinghua CS undergraduate reference book list PDF.
+- Previous generated THUCS826 planning notes preserved under `docs/notes/previous-826-layout/`.
 
-## 当前优先级
+## Important cautions
 
-1. 整理资料
-2. 建知识地图
-3. 建复习计划
-4. 刷题记录
-5. 真题复盘
+- This repository does not provide official admissions or exam policy guarantees.
+- Always verify exam subjects, scores, and admissions requirements against official Tsinghua University graduate admissions sources.
+- Historical 912 materials are not equivalent to current 826 materials.
+- Some PDF/DOC/DOCX contents have not been parsed; classification may rely on filenames and folder context.
 
-## 目录导航
+## Current status
 
-- `docs/00_official/`：官方目录与政策备注。
-- `docs/01_exam_overview/`：826 与旧 912、408 的对比，以及目标项目说明。
-- `docs/02_data_structure/`：数据结构路线、知识地图与题目索引。
-- `docs/03_computer_principles/`：计算机原理路线、知识地图与题目索引。
-- `docs/04_operating_system/`：操作系统路线、知识地图与题目索引。
-- `docs/05_computer_network/`：计算机网络路线、知识地图与题目索引。
-- `docs/06_algorithm_supplement/`：算法与 OJ 补充训练。
-- `docs/07_past_papers/`：历史 912 与当前 826 真题/回忆资料索引。
-- `docs/08_review_plan/`：周计划、暑期计划和长期计划。
-- `docs/09_interview_and_oj/`：复试、机试和 OJ 训练。
-- `raw/`：原始资料后续归档区。当前不删除原始资料，优先建立索引。
-- `scripts/inventory.py`：生成 Markdown 资料清单和文件类型统计。
+- Root directory has been cleaned.
+- Past 912 recall files have been moved into year-based `exams/` folders.
+- Root reference materials have been moved into `references/`.
+- Old time-based folders have been archived under `raw/`.
+- Generated reports live under `outputs/`.
 
-## 资料盘点
+## Next steps
 
-当前资料清单见 [`docs/material_inventory.md`](docs/material_inventory.md)。
+1. Manually review files marked `needs manual review` in the inventory.
+2. Extract metadata from PDF/DOC/DOCX files where possible.
+3. Build a verified 826-specific resource list from official sources.
+4. Expand year-by-year exam analysis without inventing unavailable content.

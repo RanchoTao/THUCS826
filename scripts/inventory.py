@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Generate a Markdown inventory for the THUCS826 repository.
+"""Generate a conservative Markdown inventory for the THUCS826 repository.
 
 The script scans files, prints a Markdown report, summarizes file types,
-and flags possible duplicates. It does not move, rename, or delete files.
+infers likely categories/subjects from paths, and flags possible duplicates.
+It does not move, rename, or delete files.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 SKIP_DIRS = {".git", "__pycache__"}
-PAPER_RE = re.compile(r"(19\d{2}|20\d{2}|\d{2})")
+YEAR_RE = re.compile(r"(?<!\d)(19\d{2}|20\d{2}|\d{2})(?!\d)")
 
 
 def iter_files(root: Path):
@@ -32,18 +33,17 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def normalize_name(path: Path) -> str:
-    stem = path.stem.lower()
+def normalize_name(path_text: str) -> str:
+    stem = Path(path_text).stem.lower()
     stem = re.sub(r"[\s_\-（）()]+", "", stem)
-    stem = re.sub(r"答案|解析|回忆版|综合|真题|考研题", "", stem)
+    stem = re.sub(r"答案|解析|回忆版|综合|真题|考研题|duplicate", "", stem)
     return stem
 
 
 def infer_year(path_text: str) -> str:
-    text = path_text
-    match = PAPER_RE.search(text)
+    match = YEAR_RE.search(path_text)
     if not match:
-        return "待识别"
+        return ""
     raw = match.group(1)
     if len(raw) == 2:
         year = int(raw)
@@ -51,58 +51,106 @@ def infer_year(path_text: str) -> str:
     return raw
 
 
+def infer_file_type(path: Path) -> str:
+    if path.name == ".gitignore":
+        return "configuration file"
+    suffix = path.suffix.lower()
+    if not suffix:
+        return "file without extension"
+    return suffix.lstrip(".")
+
+
+def infer_category(path_text: str) -> str:
+    lower = path_text.lower()
+    if lower.startswith("exams/") or any(key in path_text for key in ["回忆", "真题", "考研题", "考题"]):
+        return "past exam / recall version"
+    if lower.startswith("references/") or "参考书目" in path_text:
+        return "textbook / book list"
+    if lower.startswith("docs/"):
+        return "generated document" if "previous-826-layout" in lower else "personal notes"
+    if lower.startswith("outputs/"):
+        return "generated document"
+    if lower.startswith("scripts/"):
+        return "script"
+    if path_text == ".gitignore":
+        return "configuration file"
+    if lower.startswith("raw/"):
+        return "raw material"
+    return "unclear / needs manual review"
+
+
 def infer_subject(path_text: str) -> str:
-    text = path_text
     rules = [
-        ("数据结构", "数据结构"),
-        ("DSA", "数据结构"),
-        ("dsa", "数据结构"),
-        ("计算机组成原理", "计算机原理"),
-        ("计组", "计算机原理"),
-        ("操作系统", "操作系统"),
-        ("计算机网络", "计算机网络"),
-        ("英语", "英语/公共课"),
-        ("数学", "数学/公共课"),
-        ("考题", "历史考题"),
-        ("912", "912 综合"),
-        ("826", "826 综合"),
-        ("王道", "统考参考"),
+        ("数据结构", "data structures"),
+        ("data_structure", "data structures"),
+        ("dsa", "data structures"),
+        ("algorithm", "algorithms"),
+        ("算法", "algorithms"),
+        ("计算机组成原理", "computer organization"),
+        ("计组", "computer organization"),
+        ("computer_principles", "computer organization"),
+        ("操作系统", "operating systems"),
+        ("operating_system", "operating systems"),
+        ("计算机网络", "computer networks"),
+        ("computer_network", "computer networks"),
+        ("数学", "mathematics"),
+        ("linear", "mathematics"),
+        ("英语", "unclear"),
+        ("912", "general CS"),
+        ("826", "general CS"),
+        ("reference-books", "general CS"),
+        ("参考书目", "general CS"),
     ]
-    hits = [label for key, label in rules if key in text]
-    return "、".join(dict.fromkeys(hits)) if hits else "待分类"
+    lower = path_text.lower()
+    hits = []
+    for key, label in rules:
+        if key.lower() in lower and label not in hits:
+            hits.append(label)
+    return ", ".join(hits) if hits else "unclear"
 
 
-def infer_kind(path: Path, path_text: str) -> str:
-    text = path_text
-    suffix = path.suffix.lower() or "无扩展名"
-    if any(key in text for key in ["真题", "考研题", "回忆版", "考题"]):
-        return "真题/回忆资料"
-    if "README" in path.name:
-        return "说明文件"
-    if "ppt" in text.lower():
-        return "课件"
-    if any(key in text for key in ["笔记", "notes", "chp", "conclusion"]):
-        return "笔记"
-    if "lab" in text.lower():
-        return "实验报告"
-    if suffix in {".jpg", ".jpeg", ".png"}:
-        return "图片"
-    return suffix.lstrip(".").upper() + " 文件"
+def recommended_action(path_text: str, duplicate: str) -> str:
+    if path_text.startswith("raw/duplicates/"):
+        return "manually reviewed"
+    if duplicate.startswith("exact"):
+        return "manually reviewed"
+    if path_text.startswith(("README.md", "LICENSE", ".gitignore", "docs/", "exams/", "references/", "raw/", "scripts/", "outputs/")):
+        return "kept in place"
+    return "manually reviewed"
 
 
-def keep_note(path_text: str, duplicate: str) -> str:
-    text = path_text
-    if duplicate.startswith("是"):
-        return "保留一个权威版本，暂不删除原件"
-    if "912" in text or "考题" in text:
-        return "保留：912/历史参考，不等同于当前 826"
-    if any(s in text for s in ["数据结构", "计算机组成原理", "操作系统", "计算机网络"]):
-        return "保留：826 四科相关参考"
-    if any(s in text for s in ["英语", "数学"]):
-        return "保留：公共课/辅助资料，非 826 主线"
-    if path_text.startswith("raw/"):
-        return "保留：原始资料归档区"
-    return "保留：待进一步分类"
+def suggested_path(path_text: str) -> str:
+    return path_text
+
+
+def reason(path_text: str, category: str, duplicate: str) -> str:
+    if path_text.startswith("raw/duplicates/"):
+        return "Moved here because an exact duplicate or likely duplicate needs safe review."
+    if path_text.startswith("exams/"):
+        return "Year-based past exam/recall file location keeps root clean."
+    if path_text.startswith("references/"):
+        return "Reference material belongs outside the root directory."
+    if path_text.startswith("raw/legacy-before-2025-11/"):
+        return "Legacy time-based archive preserved without broad deletion."
+    if path_text.startswith("raw/legacy-after-2026-01/"):
+        return "Later legacy archive preserved for manual review."
+    if path_text.startswith("outputs/"):
+        return "Generated report belongs under outputs."
+    if path_text.startswith("scripts/"):
+        return "Utility script belongs under scripts."
+    if path_text.startswith("docs/"):
+        return "Documentation or preserved notes belong under docs."
+    if duplicate != "no":
+        return "Potential duplicate; compare content and provenance before deleting anything."
+    return f"Conservative classification as {category}."
+
+
+def duplicate_label(rel: str, exact_dups: set[str], fuzzy_dups: set[str]) -> str:
+    if rel in exact_dups:
+        return "exact duplicate candidate"
+    if rel in fuzzy_dups:
+        return "possible duplicate candidate"
+    return "no"
 
 
 def main() -> int:
@@ -112,56 +160,84 @@ def main() -> int:
     root = Path(args.root).resolve()
     files = list(iter_files(root))
 
-    hashes = defaultdict(list)
-    norm_names = defaultdict(list)
+    hashes: dict[str, list[str]] = defaultdict(list)
+    norm_names: dict[str, list[str]] = defaultdict(list)
     rows = []
     for path in files:
         rel = path.relative_to(root).as_posix()
         digest = sha256(path)
         hashes[digest].append(rel)
-        norm_names[normalize_name(path)].append(rel)
+        norm_names[normalize_name(rel)].append(rel)
         rows.append((path, rel, digest))
 
-    dup_by_hash = {p for group in hashes.values() if len(group) > 1 for p in group}
-    dup_by_name = {p for group in norm_names.values() if len(group) > 1 for p in group}
+    exact_dups = {p for group in hashes.values() if len(group) > 1 for p in group}
+    fuzzy_dups = {p for group in norm_names.values() if len(group) > 1 for p in group}
 
-    print("# 资料清单\n")
-    print("> 本报告由 `scripts/inventory.py` 生成；脚本只扫描并输出报告，不移动、不删除文件。\n")
-    print("## 文件类型统计\n")
-    counts = Counter((p.suffix.lower() or "无扩展名") for p, _, _ in rows)
-    print("| 类型 | 数量 |")
+    print("# Material Inventory\n")
+    print("> Generated by `scripts/inventory.py`. The script only scans and reports; it does not move, rename, or delete files.\n")
+
+    print("## File type summary\n")
+    counts = Counter(infer_file_type(path) for path, _, _ in rows)
+    print("| File type | Count |")
     print("| --- | ---: |")
-    for ext, count in sorted(counts.items()):
-        print(f"| {ext} | {count} |")
+    for file_type, count in sorted(counts.items()):
+        print(f"| {file_type} | {count} |")
 
-    print("\n## 资料明细\n")
-    print("| 名称 | 类型 | 年份 | 所属科目 | 是否重复 | 是否需要保留 |")
-    print("| --- | --- | --- | --- | --- | --- |")
+    print("\n## Detailed inventory\n")
+    print("| Current path | File type | Likely category | Likely subject area | Year | Recommended action | Suggested new path | Short reason |")
+    print("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    manual_review = []
+    duplicate_rows = []
     for path, rel, _ in rows:
-        if rel in dup_by_hash:
-            duplicate = "是：内容哈希重复"
-        elif rel in dup_by_name:
-            duplicate = "可能：名称相近"
-        else:
-            duplicate = "否"
+        duplicate = duplicate_label(rel, exact_dups, fuzzy_dups)
+        category = infer_category(rel)
+        subject = infer_subject(rel)
+        action = recommended_action(rel, duplicate)
+        why = reason(rel, category, duplicate)
+        if action == "manually reviewed" or category == "unclear / needs manual review" or subject == "unclear":
+            manual_review.append(rel)
+        if duplicate != "no":
+            duplicate_rows.append(rel)
         print(
-            f"| `{rel}` | {infer_kind(path, rel)} | {infer_year(rel)} | "
-            f"{infer_subject(rel)} | {duplicate} | {keep_note(rel, duplicate)} |"
+            f"| `{rel}` | {infer_file_type(path)} | {category} | {subject} | {infer_year(rel)} | "
+            f"{action} | `{suggested_path(rel)}` | {why} |"
         )
 
-    print("\n## 可能重复文件\n")
-    exact = [group for group in hashes.values() if len(group) > 1]
-    fuzzy = [group for group in norm_names.values() if len(group) > 1]
-    if not exact and not fuzzy:
-        print("\n暂无明确重复文件。")
-    if exact:
-        print("\n### 内容哈希完全一致\n")
-        for group in exact:
-            print("- " + "；".join(f"`{item}`" for item in group))
-    if fuzzy:
-        print("\n### 名称相近，需人工确认\n")
-        for group in fuzzy:
-            print("- " + "；".join(f"`{item}`" for item in group))
+    print("\n## Summary\n")
+    print("### What materials the repo currently contains\n")
+    print("- Year-based historical 912 recall files for 2017, 2018, 2019, and 2020 under `exams/`.")
+    print("- Legacy pre-2025-11 archive containing older exams, data-structure materials, computer-organization materials, operating-system notes, network notes, math/English materials, and miscellaneous files.")
+    print("- Post-2026-01 legacy archive with limited currently visible content.")
+    print("- Reference materials under `references/`, including the Tsinghua CS undergraduate reference book list PDF and the original `王道` note.")
+    print("- Generated documentation, previous planning notes, scripts, and audit outputs.\n")
+
+    print("### Main organizational problems\n")
+    print("- Historical 912 materials and current 826 planning notes were previously mixed together.")
+    print("- Time-based Chinese folders made long-term navigation difficult.")
+    print("- Some binary documents cannot be classified beyond filename/context without manual parsing.")
+    print("- Duplicate or near-duplicate historical exam files need provenance review before deletion.\n")
+
+    print("### Recommended target structure\n")
+    print("- Keep root limited to `README.md`, `LICENSE`, `.gitignore`, and major folders.")
+    print("- Keep normalized recall files in `exams/{year}/`.")
+    print("- Keep reference materials in `references/`.")
+    print("- Keep raw legacy archives in `raw/legacy-before-2025-11/` and `raw/legacy-after-2026-01/`.")
+    print("- Keep generated reports in `outputs/` and scripts in `scripts/`.\n")
+
+    print("### Files that need manual review\n")
+    if manual_review:
+        for item in manual_review:
+            print(f"- `{item}`")
+    else:
+        print("- None identified by the current heuristic.")
+
+    print("\n### Files that may be duplicates\n")
+    if duplicate_rows:
+        for item in duplicate_rows:
+            print(f"- `{item}`")
+    else:
+        print("- None identified by the current heuristic.")
+
     return 0
 
 
